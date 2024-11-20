@@ -1,0 +1,91 @@
+{
+    "name":"sr3_16_128",
+    "pahse":"train", //train or val
+    "gpu_ids":[0],
+
+    "path":{
+        "log":"logs_sr3_16_128",
+        "tb_logger":"tb_logs_sr3_16_128",
+        "result":"result",
+        "checkpoint":"checkpoint",
+        "resume_state":null
+    },
+
+    "datasets":{
+        "train":{
+            "name":"FFHQ",
+            "mode":"HR", //high resolution or low resolution
+            "dataroot":"datasets/16_128",
+            "datatype":"lmdb", //lmdb or img
+            "l_resolution":16,
+            "h_resolution":128,
+            "batch_size":16,
+            "num_workers":4,
+            "shuffle":true,
+            "data_len":-1 //-1 means all data
+        },
+
+        "val":{
+            "name":"FFHQ",
+            "mode":"HR", //high resolution or low resolution
+            "dataroot":"datasets/16_128",
+            "datatype":"lmdb", //lmdb or img
+            "l_resolution":16,
+            "h_resolution":128,
+            "data_len":50
+        }  
+    },
+
+    "model":{
+        "modelname":"sr3",
+        
+        "finetune_norm":false,
+
+        "unet":{
+            "in_channels":6,
+            "out_channels":3,
+            "inner_channels":64,
+            "channel_multipliers":[1,2,2,2,2],
+            "atten_res":16,
+            "num_res_blocks":4,
+            "dropout":0.2
+        },
+
+        "belta_schedule":{
+            "train":{
+                "schedule":"linear",
+                "timestep":2000,
+                "strat":1e-6,
+                "end":2e-4
+            },
+
+            "val":{
+                "schedule":"linear",
+                "timestep":2000,
+                "strat":1e-6,
+                "end":2e-4
+            }
+        },
+
+        "diffusion":{
+            "img_size":128,
+            "channels":3,
+            "conditional":true //whether use conditonal diffusion
+        }
+    },
+
+    "train":{
+        "trian_nums":1e5,
+        "val_freq":1e4,
+        "save_freq":1e4,
+        "print_freq":100,
+        "optimizer":{
+            "name":"Adam",
+            "lr":1e-4
+        }
+    },
+
+    "wandb":{
+        "project":"sr3_16_128"
+    }
+}
