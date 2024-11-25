@@ -71,14 +71,14 @@ def prepare_process(img_subset,wctx:WorkingContext):
             hr_img.save('{}/{}_hr/{}.png'.format(wctx.out_path,wctx.size[1],str(i).zfill(5)))
             sr_img.save('{}/{}_{}_sr/{}.png'.format(wctx.out_path,wctx.size[0],wctx.size[1],str(i).zfill(5)))
         else:
-            with wctx.env.begin(writer = True) as txn:  #lmdb事务的开启，在其他函数已经实现了lmdb库的创建,在lmdb中，同时只能有一个写事务
-                txn.put('{}_lr_{}'.format(wctx.size[0],str(i).zfill(5).encode('utf-8'),lr_img))
-                txn.put('{}_hr_{}'.format(wctx.size[1],str(i).zfill(5).encode('utf-8'),hr_img))
-                txn.put('{}_{}_sr_{}'.format(wctx.size[0],wctx.size[1],str(i).zfill(5).encode('utf-8'),sr_img))
+            with wctx.env.begin(write = True) as txn:  #lmdb事务的开启，在其他函数已经实现了lmdb库的创建,在lmdb中，同时只能有一个写事务
+                txn.put('{}_lr_{}'.format(wctx.size[0],str(i).zfill(5)).encode(),lr_img)
+                txn.put('{}_hr_{}'.format(wctx.size[1],str(i).zfill(5)).encode(),hr_img)
+                txn.put('{}_{}_sr_{}'.format(wctx.size[0],wctx.size[1],str(i).zfill(5)).encode(),sr_img)
         counter = wctx.increment_counter()
 
         if wctx.lmdb_save:
-            with wctx.env.begin() as txn:
+            with wctx.env.begin(write=True) as txn:
                 txn.put('length'.encode('utf-8'),str(counter).encode('utf-8'))
 
 def all_threads_inactive(threads):
@@ -102,7 +102,7 @@ def prepare(img_path:str,out_path:str,n_worker=0,size=[128,256],resample=Image.B
         for i in ['{}_lr'.format(size[0]),f'{size[1]}_hr',f'{size[0]}_{size[1]}_sr']: 
             (path/i).mkdir(parents=True,exist_ok=True) #mkdir函数会创建指定路径的目录，如果目录已经存在，则不会报错，如果父目录不存在，则会报错，parents=True参数表示会创建父目录，exist_ok=True参数表示如果目录已经存在，则不会报错
     else:
-        env = lmdb.open(out_path,map_size=1024**4,readahead=False) #lmdb库的创建，map_size参数表示数据库的大小，readahead参数表示是否预读数据，默认为True
+        env = lmdb.open(out_path,map_size=1024**3*8,readahead=False) #lmdb库的创建，map_size参数表示数据库的大小，readahead参数表示是否预读数据，默认为True
 
     wctx = WorkingContext(resize_fn,lmdb_save,out_path,env,size)
 
@@ -113,22 +113,25 @@ def prepare(img_path:str,out_path:str,n_worker=0,size=[128,256],resample=Image.B
         img_subset = np.array_split(files_name,n_worker)
         i = 1
         with ProcessPoolExecutor(max_workers=n_worker) as executor:
-            executor.map(process_subset,img_subset)
-            print("正在分批处理数据，已完成{}/{}".format(i,n_worker))
-            i = i + 1
+            information = executor.map(process_subset,img_subset)
+            for i,_ in enumerate(information):
+                print('正在分批处理数据，已完成{1}/{n_worker}')
     else:
         process_subset(files_name)
+
+    if env is not None:
+        env.close()
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--img_path',type=str,default='./datasets/celeba_hq_256')
-    parser.add_argument('--out_path',type=str,default='./datasets/celeba')
+    parser.add_argument('--out_path',type=str,default='./datasets/celeba_lmdb')
     parser.add_argument('--n_worker',type=int,default=0)
     parser.add_argument('--size',type=tuple,default=[16,128])
     parser.add_argument('--lmdb_save',action='store_true')
 
     args = parser.parse_args()
     args.out_path = '{}_{}_{}'.format(args.out_path,args.size[0],args.size[1])
-    prepare(args.img_path,args.out_path,args.n_worker,args.size)
+    prepare(args.img_path,args.out_path,args.n_worker,args.size,lmdb_save=True)
     

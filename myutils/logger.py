@@ -4,6 +4,13 @@ from collections import OrderedDict
 from datetime import datetime
 
 
+def mkdirs(paths):
+    if isinstance(paths,str):
+        os.makedirs(paths,exist_ok=True)
+    else:
+        for path in paths:
+            os.makedirs(path,exist_ok=True)
+
 def get_timestamp():
     return datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -24,12 +31,12 @@ def parse(args):
     #设置log文件路径
     if args.debug:
         opt['name'] = 'debug_{}'.format(opt['name'])
-    experiments_root = os.path.join('experiments','{}_{}',format(opt['name'],get_timestamp()))
+    experiments_root = os.path.join('experiments','{}_{}'.format(opt['name'],get_timestamp()))
     opt['path']['experiment_root'] = experiments_root
     for key,path in opt['path'].items():
         if 'resume' not in key or 'expreiments' not in key:
             opt['path'][key] = os.path.join(experiments_root,path)
-            os.mkdir(opt['path'][key])
+            mkdirs(opt['path'][key])
 
     opt['phase'] = phase
 
@@ -40,7 +47,7 @@ def parse(args):
     else:
         gpu_list = ','.join([str(x) for x in opt['gpu_ids']])
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu_list
-    if len(gpu_ids) > 1:
+    if len(gpu_list) > 1:
         opt['distributed'] = True
     else:
         opt['distributed'] = False
@@ -64,18 +71,19 @@ def parse(args):
     opt['wandb']['enable_wandb'] = enable_wandb
 
     #设置nonedict类，当未匹配到键对时返回None而不是抛出异常
-    class NoneDict(dict):
-        def __missing__(self, key):
-            return None
     
-    #将opt字典中的所有dict转换为Nonedict类
-    def dict_to_nonedict(opt):
-        if isinstance(opt, dict):
-            new_opt = dict()
-            for key,val in opt.items():
-                new_opt[key] = dict_to_nonedict(val)
-            return NoneDict(**new_opt)
-        elif isinstance(opt,list):
-            return [dict_to_nonedict(x) for x in opt]
-        else:
-            return opt
+class NoneDict(dict):
+    def __missing__(self, key):
+        return None
+    
+#将opt字典中的所有dict转换为Nonedict类
+def dict_to_nonedict(opt):
+    if isinstance(opt, dict):
+        new_opt = dict()
+        for key,val in opt.items():
+            new_opt[key] = dict_to_nonedict(val)
+        return NoneDict(**new_opt)
+    elif isinstance(opt,list):
+        return [dict_to_nonedict(x) for x in opt]
+    else:
+        return opt

@@ -1,6 +1,6 @@
 {
     "name":"sr3_16_128",
-    "pahse":"train", //train or val
+    "phase":"train", //train or val
     "gpu_ids":[0],
 
     "path":{
@@ -54,16 +54,16 @@
         "belta_schedule":{
             "train":{
                 "schedule":"linear",
-                "timestep":2000,
-                "strat":1e-6,
-                "end":2e-4
+                "num_steps":2000,
+                "strat":1e-4,
+                "end":2e-2
             },
 
             "val":{
                 "schedule":"linear",
-                "timestep":2000,
-                "strat":1e-6,
-                "end":2e-4
+                "num_steps":2000,
+                "strat":1e-4,
+                "end":2e-2
             }
         },
 
